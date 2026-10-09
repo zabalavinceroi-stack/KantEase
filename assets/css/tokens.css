@@ -1,0 +1,170 @@
+/* ==========================================================================
+   KantEase — design tokens
+
+   Every colour, radius, shadow and spacing step in the application comes from
+   here. Nothing else hard-codes a hex value.
+
+   Both themes are defined as the same set of variable names, so a component
+   never has to know which theme is active. The theme is chosen by
+   `data-theme` on <html>, which the inline script in the page head sets before
+   the first paint to avoid a flash.
+   ========================================================================== */
+
+:root {
+    /* -- Brand ------------------------------------------------------------ */
+    --brand-500: #ff8a3d;
+    --brand-600: #f07a2c;
+    --brand-700: #d9651c;
+    --brand-soft: #ffe8d8;
+    --brand-ink: #7a3406;
+
+    /* -- Neutrals (light) -------------------------------------------------- */
+    --surface-0: #f4f7fa;        /* page background   */
+    --surface-1: #ffffff;        /* cards, panels    */
+    --surface-2: #eef3f8;        /* insets, table head */
+    --surface-3: #e2eaf2;        /* hover            */
+    --border-1: #d9e3ed;         /* default border   */
+    --border-2: #b9cbdc;         /* strong border    */
+
+    --text-1: #14304c;           /* headings, body   */
+    --text-2: #4a647d;           /* secondary        */
+    --text-3: #7b91a7;           /* muted, captions  */
+    --text-inverse: #ffffff;
+
+    /* -- Sidebar ----------------------------------------------------------- */
+    --nav-bg: #12304e;
+    --nav-bg-deep: #0d2439;
+    --nav-text: #d8e5f1;
+    --nav-text-muted: #93aac0;
+    --nav-active-bg: var(--brand-500);
+    --nav-active-text: #2f1a09;
+
+    /* -- Status ----------------------------------------------------------- */
+    --ok-bg: #e2f4e9;      --ok-ink: #12603c;      --ok-border: #a8dcc0;
+    --warn-bg: #fff3d6;    --warn-ink: #8a5d00;    --warn-border: #f0d493;
+    --bad-bg: #fdeceb;     --bad-ink: #97231c;     --bad-border: #f3bdb9;
+    --info-bg: #e6f0fd;    --info-ink: #1f5a9c;    --info-border: #b4d2f2;
+    --neutral-bg: #eceff3; --neutral-ink: #4a647d; --neutral-border: #d5dee7;
+
+    /* -- Typography ------------------------------------------------------- */
+    --font-sans: "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    --font-mono: "Cascadia Mono", "Consolas", "SF Mono", "Roboto Mono", monospace;
+
+    --text-xs:   0.75rem;
+    --text-sm:   0.8125rem;
+    --text-base: 0.9375rem;
+    --text-md:   1.0625rem;
+    --text-lg:   1.25rem;
+    --text-xl:   1.5rem;
+    --text-2xl:  1.875rem;
+
+    --leading-tight: 1.25;
+    --leading-normal: 1.55;
+
+    --weight-normal: 400;
+    --weight-medium: 600;
+    --weight-bold: 700;
+
+    /* -- Spacing (4px base) ------------------------------------------------ */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+
+    /* -- Shape ------------------------------------------------------------ */
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 14px;
+    --radius-pill: 999px;
+
+    --border-width: 1px;
+
+    /* -- Elevation -------------------------------------------------------- */
+    --shadow-sm: 0 1px 2px rgba(20, 48, 76, .06);
+    --shadow: 0 4px 14px rgba(20, 48, 76, .08);
+    --shadow-lg: 0 14px 34px rgba(20, 48, 76, .16);
+    --shadow-focus: 0 0 0 3px rgba(255, 138, 61, .38);
+
+    /* -- Motion ----------------------------------------------------------- */
+    --speed-fast: 120ms;
+    --speed: 200ms;
+    --ease: cubic-bezier(.2, .6, .3, 1);
+
+    /* -- Layout ----------------------------------------------------------- */
+    --sidebar-width: 248px;
+    --sidebar-width-collapsed: 72px;
+    --topbar-height: 62px;
+    --content-max: 1320px;
+
+    /* -- Focus ------------------------------------------------------------ */
+    --focus-ring: 0 0 0 3px rgba(255, 138, 61, .45);
+}
+
+/* ==========================================================================
+   Dark theme
+   ========================================================================== */
+
+:root[data-theme="dark"] {
+    --surface-0: #0d1b2a;
+    --surface-1: #152a40;
+    --surface-2: #1b334b;
+    --surface-3: #223d58;
+    --border-1: #2b4763;
+    --border-2: #3a5a7a;
+
+    --text-1: #eaf2f9;
+    --text-2: #adc3d7;
+    --text-3: #8399ae;
+    --text-inverse: #0d1b2a;
+
+    --nav-bg: #102940;
+    --nav-bg-deep: #0a1d2f;
+    --nav-text: #d3e2ef;
+    --nav-text-muted: #8299af;
+    --nav-active-text: #2f1a09;
+
+    --ok-bg:     #14362a;  --ok-ink:     #8fd9b3;  --ok-border:     #225a41;
+    --warn-bg:   #3d3116;  --warn-ink:   #f0c65f;  --warn-border:   #6b561f;
+    --bad-bg:    #45211f;  --bad-ink:    #f3aaa4;  --bad-border:    #7a3a35;
+    --info-bg:   #16324f;  --info-ink:   #a8cdf5;  --info-border:   #2a5580;
+    --neutral-bg: #22303f; --neutral-ink: #adc3d7; --neutral-border: #33475c;
+
+    --brand-soft: #4a2a14;
+    --brand-ink: #ffcaa5;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow: 0 4px 14px rgba(0, 0, 0, .45);
+    --shadow-lg: 0 14px 34px rgba(0, 0, 0, .6);
+    --shadow-focus: 0 0 0 3px rgba(255, 154, 92, .5);
+}
+
+@media (prefers-color-scheme: dark) {
+    /* Only applies when no explicit theme has been chosen, which is decided by
+       the inline head script before this file is parsed. */
+    :root:not([data-theme]) {
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+
+/* ==========================================================================
+   Motion preferences
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

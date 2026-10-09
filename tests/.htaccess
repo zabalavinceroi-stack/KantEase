@@ -1,0 +1,35 @@
+# =============================================================================
+# KantEase - tests/: never reachable over HTTP.
+# =============================================================================
+#
+# These scripts are not part of the application. They are verification
+# harnesses, and they are more dangerous than the application itself:
+#
+#   verify-phase2.php   connects to the database and CREATES AND DROPS
+#                       throwaway databases named kantease_verify_*
+#   verify-web.php      issues HTTP requests to this very server
+#   legacy-password-test.php  reads stored credential hashes
+#
+# Apache will happily execute any .php it can reach, so without this file the
+# suite was not merely readable from a browser on the school LAN - it was
+# RUNNING. The web suite caught this: a request for /tests/verify-phase2.php
+# timed out rather than returning 403, which is the signature of a script
+# being executed (section B computes four scrypt vectors, roughly 60 seconds
+# of work) rather than one being refused.
+#
+# They are run from the command line:
+#
+#   php tests\verify-phase2.php
+#
+# If you move KantEase outside the DocumentRoot this file is redundant but
+# harmless, and worth keeping.
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
+
+Options -Indexes

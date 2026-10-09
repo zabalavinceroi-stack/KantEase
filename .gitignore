@@ -1,0 +1,43 @@
+# KantEase — local-only files that must never be committed
+
+# ---------------------------------------------------------------------------
+# Local database credentials (Phase 2 requirement: never hardcode, never commit)
+# Copy includes/config.sample.php to includes/config.local.php and edit that.
+# ---------------------------------------------------------------------------
+/includes/config.local.php
+/includes/config.local.php.bak
+
+# ---------------------------------------------------------------------------
+# One-time installer lock. Its presence permanently disables database/setup.php
+# ---------------------------------------------------------------------------
+/database/.installed
+
+# ---------------------------------------------------------------------------
+# Original Node.js application.
+# Kept on disk on purpose so the migration can be validated against it, but it
+# is a dependency snapshot, not source. Remove this block once Phase 9 signs off.
+# ---------------------------------------------------------------------------
+/node_modules/
+/package-lock.json
+
+# ---------------------------------------------------------------------------
+# Locally uploaded product images (user content, never source)
+# ---------------------------------------------------------------------------
+/uploads/products/*
+!/uploads/products/.htaccess
+!/uploads/products/.gitkeep
+
+# ---------------------------------------------------------------------------
+# Runtime artefacts
+# ---------------------------------------------------------------------------
+*.log
+*.tmp
+Thumbs.db
+.DS_Store
+
+# ---------------------------------------------------------------------------
+# Editors / OS
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp

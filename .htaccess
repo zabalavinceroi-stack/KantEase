@@ -1,0 +1,128 @@
+# =============================================================================
+# KantEase — root Apache configuration
+# Target: XAMPP (Apache 2.4) running on localhost or a school LAN.
+# =============================================================================
+
+# Never serve directory listings.
+Options -Indexes
+
+DirectoryIndex index.php
+
+# -----------------------------------------------------------------------------
+# Deny access to files that must never be requested over HTTP, even if the
+# folder is copied somewhere it should not be.
+# -----------------------------------------------------------------------------
+<FilesMatch "(^\.|\.(sql|md|log|ini|dist|bak|old|orig|sh|bat|cmd)$)">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Defence in depth: the real local config lives in includes/ (already denied by
+# its own .htaccess). Deny it here too in case that file is ever lost.
+<Files "config.local.php">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</Files>
+
+# The legacy Node.js application and its dependency snapshot are kept on disk
+# only so the migration can be compared against them. server.js contains hard
+# database credentials, so neither it nor the Node metadata may be served.
+<FilesMatch "^(server\.js|package\.json|package-lock\.json)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# node_modules/ is a build artefact that should never have been inside a web
+# root. Deleting it is the real fix; this is the safety net in case it is
+# still here.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^node_modules/ - [F,L,NC]
+</IfModule>
+
+# NOTE: database/setup.php is deliberately NOT blocked here. It is the
+# one-time installer and must be reachable until it has been used. Once it
+# creates the first administrator it writes database/.installed and refuses to
+# run again, and the installer's own instructions tell you to delete it.
+
+# -----------------------------------------------------------------------------
+# Security response headers.
+#
+# The Content-Security-Policy below is deliberately strict: no CDN, no external
+# origin, no inline script. Every stylesheet and script is a local file under
+# assets/. The single inline <script> that prevents a light/dark theme flash is
+# whitelisted with a per-request nonce emitted by includes/functions.php
+# (csp_nonce()), which is why CSP is served dynamically rather than here.
+# -----------------------------------------------------------------------------
+<IfModule mod_headers.c>
+    # Each header is unset before it is set. `Header always set` APPENDS to a
+    # value PHP has already sent, which produced duplicated headers such as
+    # "nosniff,nosniff" once send_page_headers() started working. Unsetting
+    # first collapses the pair back to a single value while keeping both
+    # layers: Apache guarantees the header on its own error pages, and PHP
+    # guarantees it when the application runs under a different server.
+    Header always unset X-Content-Type-Options
+    Header always set   X-Content-Type-Options "nosniff"
+
+    Header always unset X-Frame-Options
+    Header always set   X-Frame-Options "SAMEORIGIN"
+
+    Header always unset Referrer-Policy
+    Header always set   Referrer-Policy "same-origin"
+
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), interest-cohort=()"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+
+    # Disable the legacy reflected-XSS auditor; the CSP below supersedes it.
+    Header always set X-XSS-Protection "0"
+
+    # Never advertise the PHP version. `php_flag expose_php off` below covers
+    # mod_php, but that directive is silently ignored by every other SAPI
+    # (FastCGI, CGI), and the web suite measured "X-Powered-By: PHP/8.2.12" on
+    # a live response. mod_headers applies regardless of how PHP is loaded.
+    Header always unset X-Powered-By
+
+    # HSTS only matters for HTTPS. KantEase is intentionally an offline HTTP
+    # system, so this is intentionally NOT set — it would be ignored anyway.
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# Do not advertise the PHP version.
+# -----------------------------------------------------------------------------
+<IfModule mod_php.c>
+    php_flag expose_php off
+    php_flag display_errors off
+    php_flag log_errors on
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# Long-lived caching is pointless offline. Keep responses fresh so a LAN student
+# never sees a stale menu or a stale order status.
+# -----------------------------------------------------------------------------
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js)$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
+# -----------------------------------------------------------------------------
+# Correct MIME types for the local asset set.
+# -----------------------------------------------------------------------------
+<IfModule mod_mime.c>
+    AddType text/css            .css
+    AddType application/javascript .js
+    AddType image/svg+xml       .svg
+    AddType image/webp          .webp
+</IfModule>

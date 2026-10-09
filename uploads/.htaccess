@@ -1,0 +1,36 @@
+# =============================================================================
+# uploads/ — user-supplied files (product photos).
+#
+# Two protections:
+#   1. Nothing in this tree may ever be executed as code.
+#   2. PHP execution is switched off entirely where the module exists.
+#
+# Upload validation (MIME sniffing via finfo, extension allow-list, size cap,
+# randomised filename) lives in the upload handler added in Phase 5. These
+# rules are the second line of defence if that handler is ever bypassed.
+# =============================================================================
+
+Options -Indexes
+
+<FilesMatch "\.(php|php[0-9]|phtml|phar|phps|cgi|pl|py|sh|bash|exe|com|bat|cmd|htaccess)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Refuse to serve a dotfile (e.g. .htaccess) directly.
+<FilesMatch "^\.">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_php.c>
+    <FilesMatch "\.(php|php[0-9]|phtml|phar)$">
+        php_flag engine off
+    </FilesMatch>
+</IfModule>

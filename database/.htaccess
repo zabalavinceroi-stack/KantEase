@@ -1,0 +1,36 @@
+# =============================================================================
+# database/ — schema, migration scripts and the one-time installer.
+#
+# setup.php must stay reachable, so the directory itself is NOT denied. What is
+# denied is everything else in here:
+#
+#   *.sql   the schema and the migration script
+#   .*      the .installed lock file and any stray dotfile
+#
+# A blanket "Require all denied" plus a "Require all granted" for setup.php
+# looks simpler, but Apache merges authorization directives in a way that
+# makes the pair behave differently between 2.2 and 2.4. Denying by pattern is
+# unambiguous on both.
+# =============================================================================
+
+Options -Indexes
+
+<IfModule mod_authz_core.c>
+    <FilesMatch "\.(sql|md|log|txt|bak|dist|ini)$">
+        Require all denied
+    </FilesMatch>
+    <FilesMatch "^\.">
+        Require all denied
+    </FilesMatch>
+</IfModule>
+
+<IfModule !mod_authz_core.c>
+    <FilesMatch "\.(sql|md|log|txt|bak|dist|ini)$">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+    <FilesMatch "^\.">
+        Order allow,deny
+        Deny from all
+    </FilesMatch>
+</IfModule>

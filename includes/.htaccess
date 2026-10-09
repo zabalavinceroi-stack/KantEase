@@ -1,0 +1,17 @@
+# =============================================================================
+# includes/ — application core. Contains database credentials and every
+# server-side rule. Must never be reachable over HTTP.
+#
+# Apache 2.4 (XAMPP 8.x) uses "Require". The <IfModule!> block keeps the file
+# harmless on Apache 2.2 rather than producing a 500.
+# =============================================================================
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
+
+Options -Indexes

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  KantEase — product photo placeholder.
+
+  Shown whenever a product has no photograph, so no page ever renders a broken
+  image icon. Local SVG: no network request, no fallback chain to fail, and it
+  scales to whatever box the caller puts it in.
+
+  Colours are inherited from the theme through CSS custom properties applied by
+  the consuming page, but standalone they read correctly on the light surface
+  too, because both stops are picked to sit quietly against --surface-2.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200"
+     role="img" aria-label="No photo available">
+  <rect width="320" height="200" fill="#eef3f8"/>
+
+  <!-- A canteen tray, drawn rather than lettered so it reads at 44px wide. -->
+  <g fill="none" stroke="#b9cbdc" stroke-width="4"
+     stroke-linecap="round" stroke-linejoin="round">
+    <!-- plate -->
+    <circle cx="160" cy="104" r="46"/>
+    <circle cx="160" cy="104" r="32" stroke-width="3"/>
+    <!-- fork -->
+    <path d="M62 62v18a6 6 0 0 0 6 6h4a6 6 0 0 0 6-6V62"/>
+    <path d="M70 62v-8"/>
+    <path d="M70 86v52"/>
+    <!-- knife -->
+    <path d="M254 62c8 0 12 8 12 18s-4 16-12 16z"/>
+    <path d="M254 96v42"/>
+  </g>
+
+  <text x="160" y="182" text-anchor="middle"
+        font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+        font-size="13" fill="#7b91a7">No photo</text>
+</svg>

@@ -746,6 +746,65 @@
     }
 
     /* ======================================================================
+       Confirmation for destructive forms
+
+       Any <form data-confirm="..."> is intercepted and routed through the
+       focus-trapped dialog instead of window.confirm().
+
+       This is a convenience layer, not a control. Every destructive action in
+       KantEase is a CSRF-protected POST that the server authorises on its own,
+       so with JavaScript disabled the form still submits — it just does so
+       without the extra question. That ordering is deliberate: a confirm dialog
+       that blocks the request while the server does not check is theatre.
+       ====================================================================== */
+
+    function setupConfirmForms() {
+        document.addEventListener('submit', function (event) {
+            var form = event.target;
+
+            if (!form || !form.matches || !form.matches('form[data-confirm]')) {
+                return;
+            }
+
+            // A submitter with formmethod or formaction is asking for
+            // something other than this form's own request; do not interfere.
+            if (event.submitter && (event.submitter.hasAttribute('formmethod')
+                    || event.submitter.hasAttribute('formaction'))) {
+                return;
+            }
+
+            var message = form.getAttribute('data-confirm');
+
+            if (!message) {
+                return;
+            }
+
+            event.preventDefault();
+
+            confirmDialog({
+                title: 'Are you sure?',
+                message: message,
+                confirmLabel: 'Yes, continue',
+                danger: form.hasAttribute('data-confirm-danger')
+            }).then(function (confirmed) {
+                if (!confirmed) {
+                    return;
+                }
+
+                // Suppress this handler for the resubmission that follows, so
+                // the dialog cannot open again on top of itself.
+                form.removeAttribute('data-confirm');
+
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.submit();
+                }
+            });
+        });
+    }
+
+    /* ======================================================================
        Boot
        ====================================================================== */
 
@@ -779,6 +838,7 @@
 
         setupDrawer();
         setupAccountMenu();
+        setupConfirmForms();
 
         // Surface an unexpected disconnection rather than letting a click do
         // nothing at all. Any element with data-connection-guard gets this.

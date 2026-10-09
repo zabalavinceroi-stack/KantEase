@@ -387,6 +387,262 @@ final class Layout
     }
 
     /**
+     * A labelled <select>, with its hint and validation message.
+     *
+     * Layout::field() renders an <input>, which cannot express a dropdown. This
+     * is the sibling for the cases where the choices come from the database —
+     * a product's category, a stock-movement reason — so every select in the
+     * application gets the same label wiring, the same described-by the error,
+     * and the same escaping without each page re-implementing it.
+     *
+     * `$options` are `value => label`. The currently chosen value is taken from
+     * old input, so a failed submit keeps the administrator's choice instead of
+     * silently resetting to the first entry.
+     *
+     * @param array<string, string>              $errors
+     * @param array<string, string>              $options value => label
+     * @param array{hint?: string, required?: bool, autofocus?: bool, disabled?: bool} $field
+     */
+    public static function select(string $name, string $label, array $errors, array $options, array $field = []): void
+    {
+        $error   = $errors[$name] ?? '';
+        $id      = 'field-' . preg_replace('/[^a-z0-9]+/i', '-', $name);
+        $hint    = (string) ($field['hint'] ?? '');
+        $value   = array_key_exists('value', $field)
+            ? (string) $field['value']
+            : (string) old($name, '');
+        $required = ($field['required'] ?? true) === true;
+
+        echo '<div class="field' . ($error !== '' ? ' field--invalid' : '') . '">' . "\n";
+
+        echo '  <label class="field__label" for="' . e($id) . '">' . e($label);
+
+        if ($required) {
+            echo ' <span aria-hidden="true">*</span>';
+        }
+
+        echo "</label>\n";
+
+        echo '  <select' . "\n";
+        echo '          id="' . e($id) . '"' . "\n";
+        echo '          name="' . e($name) . '"' . "\n";
+        echo '          aria-describedby="' . e($id . '-describe') . '"';
+
+        if ($required) {
+            echo "\n          required";
+        }
+
+        if (($field['disabled'] ?? false) === true) {
+            echo "\n          disabled";
+        }
+
+        if ($error !== '') {
+            echo ' aria-invalid="true"';
+        }
+
+        echo ">\n";
+
+        foreach ($options as $optionValue => $optionLabel) {
+            echo '    <option value="' . e((string) $optionValue) . '"'
+                . ((string) $optionValue === $value ? ' selected' : '') . '>'
+                . e($optionLabel) . "</option>\n";
+        }
+
+        echo "  </select>\n";
+
+        echo '  <div id="' . e($id . '-describe') . '">';
+
+        if ($hint !== '') {
+            echo '    <p class="field__hint">' . e($hint) . "</p>\n";
+        }
+
+        if ($error !== '') {
+            echo '    <p class="field__error">' . e($error) . "</p>\n";
+        }
+
+        echo "  </div>\n";
+        echo "</div>\n";
+    }
+
+    /**
+     * A labelled <textarea>, for descriptions and notes.
+     *
+     * @param array<string, string>              $errors
+     * @param array{value?: string, hint?: string, required?: bool, maxlength?: int, rows?: int} $field
+     */
+    public static function textarea(string $name, string $label, array $errors, array $field = []): void
+    {
+        $error   = $errors[$name] ?? '';
+        $id      = 'field-' . preg_replace('/[^a-z0-9]+/i', '-', $name);
+        $hint    = (string) ($field['hint'] ?? '');
+        $value   = array_key_exists('value', $field)
+            ? (string) $field['value']
+            : (string) old($name, '');
+        $required = ($field['required'] ?? false) === true;
+        $maxLength = (int) ($field['maxlength'] ?? 255);
+
+        echo '<div class="field' . ($error !== '' ? ' field--invalid' : '') . '">' . "\n";
+
+        echo '  <label class="field__label" for="' . e($id) . '">' . e($label);
+
+        if ($required) {
+            echo ' <span aria-hidden="true">*</span>';
+        }
+
+        echo "</label>\n";
+
+        echo '  <textarea' . "\n";
+        echo '            id="' . e($id) . '"' . "\n";
+        echo '            name="' . e($name) . '"' . "\n";
+        echo '            rows="' . max(2, (int) ($field['rows'] ?? 3)) . '"' . "\n";
+        echo '            maxlength="' . ($maxLength > 0 ? $maxLength : 255) . '"' . "\n";
+        echo '            aria-describedby="' . e($id . '-describe') . '"';
+
+        if ($required) {
+            echo "\n            required";
+        }
+
+        if ($error !== '') {
+            echo ' aria-invalid="true"';
+        }
+
+        echo ">" . e($value) . "</textarea>\n";
+
+        echo '  <div id="' . e($id . '-describe') . '">';
+
+        if ($hint !== '') {
+            echo '    <p class="field__hint">' . e($hint) . "</p>\n";
+        }
+
+        if ($error !== '') {
+            echo '    <p class="field__error">' . e($error) . "</p>\n";
+        }
+
+        echo "  </div>\n";
+        echo "</div>\n";
+    }
+
+    /**
+     * A labelled file input.
+     *
+     * A photo field cannot be pre-filled with old input — the browser will not
+     * let a script set a file input's value — so a failed submit leaves the
+     * existing photo in place and this field simply starts empty.
+     *
+     * @param array<string, string> $errors
+     * @param array{hint?: string, accept?: string, current?: string} $field
+     */
+    public static function file(string $name, string $label, array $errors, array $field = []): void
+    {
+        $error = $errors[$name] ?? '';
+        $id    = 'field-' . preg_replace('/[^a-z0-9]+/i', '-', $name);
+        $hint  = (string) ($field['hint'] ?? '');
+
+        echo '<div class="field' . ($error !== '' ? ' field--invalid' : '') . '">' . "\n";
+        echo '  <label class="field__label" for="' . e($id) . '">' . e($label) . "</label>\n";
+        echo '  <input type="file"' . "\n";
+        echo '         id="' . e($id) . '"' . "\n";
+        echo '         name="' . e($name) . '"' . "\n";
+        echo '         accept="' . e((string) ($field['accept'] ?? 'image/jpeg,image/png,image/webp')) . '"' . "\n";
+        echo '         aria-describedby="' . e($id . '-describe') . '"';
+
+        if ($error !== '') {
+            echo ' aria-invalid="true"';
+        }
+
+        echo ">\n";
+        echo '  <div id="' . e($id . '-describe') . '">';
+
+        if ($hint !== '') {
+            echo '    <p class="field__hint">' . e($hint) . "</p>\n";
+        }
+
+        if ($error !== '') {
+            echo '    <p class="field__error">' . e($error) . "</p>\n";
+        }
+
+        echo "  </div>\n";
+        echo "</div>\n";
+    }
+
+    /**
+     * A search / filter bar: a GET form whose fields are preserved by
+     * with_query().
+     *
+     * Rendered server-side and functional without JavaScript. The submit button
+     * is a real <button>, not a hidden one behind an icon, so the bar is usable
+     * from the keyboard and still works with scripts blocked.
+     *
+     * @param array<string, string> $fields  label => input markup
+     * @param array<string, string> $query   current filter values, for the clear link
+     */
+    public static function filterBar(string $action, array $fields, array $query = []): void
+    {
+        echo '<form class="filters" method="get" action="' . e(url($action)) . '" role="search">' . "\n";
+        echo '  <div class="field">' . "\n";
+        echo '    <label class="field__label" for="filter-q">Search</label>' . "\n";
+        echo '    <input type="search" id="filter-q" name="q" value="'
+            . e((string) ($query['q'] ?? '')) . '" placeholder="Name, price, category…" maxlength="100">' . "\n";
+        echo "  </div>\n";
+
+        foreach ($fields as $field) {
+            echo '  ' . $field . "\n";
+        }
+
+        echo '  <div class="field field--narrow">' . "\n";
+        echo '    <button class="btn btn--ghost" type="submit">Apply</button>' . "\n";
+        echo "  </div>\n";
+        echo "</form>\n";
+    }
+
+    /**
+     * Page links, preserving the current filters.
+     *
+     * @param list<int|null> $pages null marks an ellipsis
+     */
+    public static function pagination(Pagination $pager, string $action, array $keep = []): void
+    {
+        if ($pager->totalPages <= 1) {
+            return;
+        }
+
+        $make = static function (int $page) use ($action, $keep): string {
+            return url($action) . with_query(['page' => $page], $keep);
+        };
+
+        echo '<nav class="pagination" aria-label="Pagination">' . "\n";
+        echo '  <p class="text-small text-muted">' . e($pager->summary('product')) . "</p>\n";
+        echo '  <div class="pagination__pages">' . "\n";
+
+        if ($pager->hasPrevious()) {
+            echo '    <a class="pagination__link" href="' . e($make($pager->previousPage()))
+                . '" rel="prev" aria-label="Previous page">‹</a>' . "\n";
+        }
+
+        foreach ($pager->window() as $page) {
+            if ($page === null) {
+                echo '    <span class="pagination__gap" aria-hidden="true">…</span>' . "\n";
+                continue;
+            }
+
+            if ($page === $pager->page) {
+                echo '    <span class="pagination__link" aria-current="page">' . $page . "</span>\n";
+                continue;
+            }
+
+            echo '    <a class="pagination__link" href="' . e($make($page)) . '">' . $page . "</a>\n";
+        }
+
+        if ($pager->hasNext()) {
+            echo '    <a class="pagination__link" href="' . e($make($pager->nextPage()))
+                . '" rel="next" aria-label="Next page">›</a>' . "\n";
+        }
+
+        echo "  </div>\n";
+        echo "</nav>\n";
+    }
+
+    /**
      * One labelled form field, with its hint and its validation message.
      *
      * Every value that came from the user is escaped here, so no page has to
@@ -408,6 +664,9 @@ final class Layout
      *     autofocus?: bool,
      *     inputmode?: string,
      *     maxlength?: int,
+     *     min?: int,
+     *     max?: int,
+     *     readonly?: bool,
      *     spellcheck?: bool,
      *     placeholder?: string,
      *     reveal?: bool,
@@ -472,6 +731,20 @@ final class Layout
 
         if (isset($options['maxlength']) && $options['maxlength'] > 0) {
             echo '         maxlength="' . (int) $options['maxlength'] . '"' . "\n";
+        }
+
+        // min / max are emitted as integers only. The browser enforces them as a
+        // convenience; the server-side rule in Validator is the actual gate, and
+        // it exists because a number input's min attribute is trivially bypassed
+        // by posting a different value.
+        foreach (['min', 'max'] as $bound) {
+            if (isset($options[$bound]) && $options[$bound] !== '') {
+                echo '         ' . $bound . '="' . (int) $options[$bound] . '"' . "\n";
+            }
+        }
+
+        if (($options['readonly'] ?? false) === true) {
+            echo "         readonly\n";
         }
 
         if (array_key_exists('spellcheck', $options)) {

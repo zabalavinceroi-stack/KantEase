@@ -19,6 +19,17 @@ declare(strict_types=1);
 
 final class HttpClient
 {
+    /**
+     * The User-Agent every request from this client carries.
+     *
+     * Shared by send() and postMultipart() on purpose. Auth::fingerprint()
+     * hashes the user agent together with the client address and drops any
+     * session whose fingerprint no longer matches, so two methods sending
+     * different agent strings would quietly sign the same client out halfway
+     * through a run — which looks exactly like a server-side session bug.
+     */
+    private const USER_AGENT = 'KantEaseVerifyPhase3/1.0';
+
     private string $jar;
 
     public function __construct(private readonly string $baseUrl)
@@ -58,6 +69,93 @@ final class HttpClient
     public function post(string $path, array $fields, array $extraHeaders = []): array
     {
         return $this->send('POST', $path, http_build_query($fields), $extraHeaders);
+    }
+
+    /**
+     * POST a multipart/form-data body, so a file can be uploaded.
+     *
+     * http_build_query() cannot carry a file: it would serialise a CURLFile as
+     * the string "Object of class CURLFile could not be converted to string",
+     * which is not an upload and would quietly make every upload check pass for
+     * the wrong reason.
+     *
+     * @param  array<string, mixed> $fields scalar values plus CURLFile entries
+     * @return array{status: int, headers: array<string, string>, body: string, location: string}
+     */
+    public function postMultipart(string $path, array $fields, array $extraHeaders = []): array
+    {
+        $handle = curl_init(
+            str_starts_with($path, 'http') ? $path : $this->baseUrl . $path
+        );
+
+        $headers = ['Accept: text/html'];
+
+        foreach ($extraHeaders as $name => $value) {
+            $headers[] = $name . ': ' . $value;
+        }
+
+        // No Content-Type is set here on purpose: cURL adds the
+        // multipart/form-data boundary itself. Setting it by hand without that
+        // boundary produces a body the server cannot parse at all.
+        $payload = [];
+
+        foreach ($fields as $name => $value) {
+            $payload[$name] = is_scalar($value) ? (string) $value : $value;
+        }
+
+        curl_setopt_array($handle, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HEADER         => true,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_COOKIEJAR      => $this->jar,
+            CURLOPT_COOKIEFILE     => $this->jar,
+            // Must match self::send() exactly. Auth binds each session to a
+            // fingerprint of the user agent and client address, so a multipart
+            // POST carrying a different agent string logs the session out and
+            // every request after it comes back signed out. That is the
+            // application behaving correctly; the client was the thing at
+            // fault.
+            CURLOPT_USERAGENT      => self::USER_AGENT,
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+        ]);
+
+        $raw    = (string) curl_exec($handle);
+        $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
+        $size   = (int) curl_getinfo($handle, CURLINFO_HEADER_SIZE);
+        $error  = curl_error($handle);
+        curl_close($handle);
+
+        if ($raw === '' && $status === 0) {
+            throw new RuntimeException(sprintf('No response from %s: %s', $path, $error));
+        }
+
+        $head = substr($raw, 0, $size);
+        $out  = substr($raw, $size);
+
+        $blocks = preg_split("/\r?\n\r?\n(?=[A-Z]{3} )/", $head) ?: [$head];
+        $last   = trim((string) end($blocks));
+
+        $parsed = [];
+
+        foreach (preg_split('/\r?\n/', $last) ?: [] as $line) {
+            if (! str_contains($line, ':')) {
+                continue;
+            }
+
+            [$name, $value] = explode(':', $line, 2);
+            $parsed[strtolower(trim($name))] = trim($value);
+        }
+
+        return [
+            'status'   => $status,
+            'headers'  => $parsed,
+            'body'     => $out,
+            'location' => $parsed['location'] ?? '',
+        ];
     }
 
     /**
@@ -156,7 +254,7 @@ final class HttpClient
             // No redirect following: the Location header IS the thing under test.
             CURLOPT_COOKIEJAR      => $this->jar,
             CURLOPT_COOKIEFILE     => $this->jar,
-            CURLOPT_USERAGENT      => 'KantEaseVerifyPhase3/1.0',
+            CURLOPT_USERAGENT      => self::USER_AGENT,
             CURLOPT_HTTPHEADER     => $headers,
         ]);
 

@@ -10,6 +10,7 @@ use KantEase\MovementType;
 use KantEase\NotFoundException;
 use KantEase\Pagination;
 use KantEase\SearchSpec;
+use KantEase\ValidationException;
 
 use function KantEase\cents_to_amount;
 
@@ -313,7 +314,7 @@ final class FoodRepository
         return Database::fetchOne(
             'SELECT f.id, f.name, f.description, f.price, f.stock, f.low_stock_level,
                     f.image_path, f.is_available, f.is_archived, f.created_at, f.updated_at,
-                    c.name AS category, c.id AS category_id
+                    c.name AS category, c.id AS category_id, c.is_active AS category_active
                FROM food_items f
                JOIN food_categories c ON c.id = f.category_id
               WHERE f.id = ?',
@@ -399,6 +400,227 @@ final class FoodRepository
         );
 
         return $row !== null && (int) $row['stock'] <= (int) $row['low_stock_level'];
+    }
+
+    // -----------------------------------------------------------------------
+    // Administration
+    //
+    // Added in Phase 4B for Admin -> Food Management.
+    // -----------------------------------------------------------------------
+
+    /**
+     * The searchable fields allowed on the Food Management screen.
+     *
+     * Declared in PHP rather than read from the request, so the browser can
+     * choose WHICH field to search and can never introduce a new SQL
+     * expression. See SearchSpec.
+     */
+    public static function adminSearch(): SearchSpec
+    {
+        return SearchSpec::make([
+            'name'        => 'f.name',
+            'description' => 'f.description',
+            'category'    => 'c.name',
+            'price'       => 'f.price',
+            'stock'       => 'f.stock',
+            'date_created' => ['column' => 'f.created_at', 'isDate' => true],
+        ]);
+    }
+
+    /**
+     * The admin product list with the filters the screen offers.
+     *
+     * @param  array{
+     *     search?: SearchSpec,
+     *     category_id?: int|null,
+     *     status?: string,
+     *     include_archived?: bool,
+     *     page?: int,
+     *     per_page?: int
+     * } $options
+     * @return array{rows: list<array<string, mixed>>, pagination: Pagination}
+     */
+    public static function paginate(array $options = []): array
+    {
+        $search = $options['search'] ?? self::adminSearch();
+
+        $conditions = [];
+        $baseParams = [];
+
+        if (! ($options['include_archived'] ?? false)) {
+            $conditions[] = 'f.is_archived = 0';
+        }
+
+        $categoryId = $options['category_id'] ?? null;
+
+        if (is_int($categoryId) && $categoryId > 0) {
+            $conditions[]    = 'f.category_id = ?';
+            $baseParams[]    = $categoryId;
+        }
+
+        // "status" is the availability filter, kept separate from the archive
+        // flag because they answer different questions: unavailable is "we have
+        // run out of it today", archived is "we no longer sell this".
+        match ((string) ($options['status'] ?? 'all')) {
+            'available'   => $conditions[] = 'f.is_available = 1',
+            'unavailable' => $conditions[] = 'f.is_available = 0',
+            default       => null,
+        };
+
+        $baseWhere = $conditions === []
+            ? ''
+            : 'WHERE ' . implode(' AND ', $conditions);
+
+        [$where, $params] = $search->build($baseWhere, $baseParams);
+
+        $total = (int) Database::fetchValue(
+            sprintf('SELECT COUNT(*) FROM food_items f JOIN food_categories c ON c.id = f.category_id %s', $where),
+            $params
+        );
+
+        $page    = (int) ($options['page'] ?? 1);
+        $perPage = (int) ($options['per_page'] ?? 20);
+
+        $pager = Pagination::for($total, $page, $perPage);
+
+        $rows = Database::fetchAll(
+            sprintf(
+                'SELECT f.id, f.name, f.description, f.price, f.stock, f.low_stock_level,
+                        f.image_path, f.is_available, f.is_archived, f.created_at, f.updated_at,
+                        c.name AS category, c.id AS category_id, c.is_active AS category_active,
+                        CASE WHEN f.stock <= f.low_stock_level THEN \'Low\' ELSE \'OK\' END AS stock_status
+                   FROM food_items f
+                   JOIN food_categories c ON c.id = f.category_id
+                   %s
+                  ORDER BY c.sort_order ASC, f.name ASC
+                  %s',
+                $where,
+                Database::limitClause($pager->perPage, $pager->offset)
+            ),
+            $params
+        );
+
+        return ['rows' => $rows, 'pagination' => $pager];
+    }
+
+    /**
+     * Product counts for the Food Management header.
+     *
+     * @return array{total: int, available: int, unavailable: int, archived: int, low_stock: int, out_of_stock: int}
+     */
+    public static function adminCounts(): array
+    {
+        $row = Database::fetchOne(
+            "SELECT COUNT(*) AS total,
+                    COALESCE(SUM(is_archived = 0), 0) AS not_archived,
+                    COALESCE(SUM(is_archived = 0 AND is_available = 1), 0) AS available,
+                    COALESCE(SUM(is_archived = 0 AND is_available = 0), 0) AS unavailable,
+                    COALESCE(SUM(is_archived = 1), 0) AS archived,
+                    COALESCE(SUM(is_archived = 0 AND is_available = 1 AND stock <= low_stock_level), 0) AS low_stock,
+                    COALESCE(SUM(is_archived = 0 AND is_available = 1 AND stock = 0), 0) AS out_of_stock
+               FROM food_items"
+        ) ?? [];
+
+        return [
+            'total'        => (int) ($row['total'] ?? 0),
+            'available'    => (int) ($row['available'] ?? 0),
+            'unavailable'  => (int) ($row['unavailable'] ?? 0),
+            'archived'     => (int) ($row['archived'] ?? 0),
+            'low_stock'    => (int) ($row['low_stock'] ?? 0),
+            'out_of_stock' => (int) ($row['out_of_stock'] ?? 0),
+        ];
+    }
+
+    /**
+     * Move a product between available and unavailable.
+     *
+     * Separate from update() because the list screen has a one-button toggle
+     * for it, and because "sold out today" is a decision a staff member makes
+     * dozens of times a shift — it must not require opening the edit form and
+     * risking an accidental price change.
+     *
+     * @throws NotFoundException
+     */
+    public static function setAvailability(int $foodId, bool $isAvailable, ?int $actorUserId = null): array
+    {
+        return Database::transaction(static function () use ($foodId, $isAvailable, $actorUserId): array {
+            $locked = self::lockForUpdate([$foodId]);
+
+            $row = $locked[$foodId];
+
+            // Switching something on when there is none of it left would put a
+            // "Buy" button on an out-of-stock product. The menu already blocks
+            // that at checkout, but the honest thing is to refuse here.
+            if ($isAvailable && (int) $row['stock'] === 0) {
+                throw new BusinessRuleException(sprintf(
+                    '"%s" has no stock left. Restock it before making it available again.',
+                    (string) $row['name']
+                ));
+            }
+
+            Database::execute(
+                'UPDATE food_items SET is_available = ? WHERE id = ?',
+                [$isAvailable ? 1 : 0, $foodId]
+            );
+
+            AuditRepository::log(
+                $actorUserId,
+                $isAvailable ? 'food.activate' : 'food.deactivate',
+                'food_item',
+                $foodId,
+                ['name' => (string) $row['name']]
+            );
+
+            $updated = self::findById($foodId);
+
+            if ($updated === null) {
+                throw new NotFoundException('That product no longer exists.');
+            }
+
+            return $updated;
+        });
+    }
+
+    /**
+     * Throw when a name is already used by a different product.
+     *
+     * @throws ValidationException
+     */
+    public static function assertNameFree(string $name, ?int $exceptId = null): void
+    {
+        if (self::nameTaken($name, $exceptId)) {
+            throw new ValidationException(
+                ['name' => 'There is already a product with that name.'],
+                'There is already a product with that name.'
+            );
+        }
+    }
+
+    /**
+     * Throw unless the category exists.
+     *
+     * The foreign key would refuse the insert anyway; this produces a message
+     * under the field instead of a 500.
+     *
+     * @throws ValidationException
+     */
+    public static function assertCategoryExists(int $categoryId): void
+    {
+        if ($categoryId < 1) {
+            throw new ValidationException(
+                ['category_id' => 'Choose a category.'],
+                'Choose a category.'
+            );
+        }
+
+        $row = Database::fetchOne('SELECT is_active FROM food_categories WHERE id = ?', [$categoryId]);
+
+        if ($row === null) {
+            throw new ValidationException(
+                ['category_id' => 'That category no longer exists. Choose another.'],
+                'That category no longer exists.'
+            );
+        }
     }
 
     // -----------------------------------------------------------------------

@@ -120,6 +120,7 @@ require_once KANTEASE_ROOT . '/includes/search.php';
 require_once KANTEASE_ROOT . '/includes/csrf.php';
 require_once KANTEASE_ROOT . '/includes/passwords.php';
 require_once KANTEASE_ROOT . '/includes/validation.php';
+require_once KANTEASE_ROOT . '/includes/uploads.php';
 require_once KANTEASE_ROOT . '/includes/error_handler.php';
 require_once KANTEASE_ROOT . '/includes/schema_installer.php';
 require_once KANTEASE_ROOT . '/includes/installer.php';

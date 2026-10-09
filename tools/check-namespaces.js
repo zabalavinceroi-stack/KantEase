@@ -82,6 +82,14 @@ const GLOBAL_CLASSES = new Set([
   'BackedEnum','RecursiveIteratorIterator','RecursiveDirectoryIterator','FilesystemIterator',
   'DirectoryIterator','Iterator','IteratorAggregate','Countable','ArrayAccess','JsonSerializable',
   'Traversable','IteratorAggregate','SensitiveParameter','Attribute','ReturnTypeWillChange',
+  // PHP extension classes.
+  //   finfo    — used by includes/uploads.php to sniff an uploaded file's real type
+  //   CURLFile — used by tests/verify-phase4b.php to post a multipart upload
+  //
+  // Note the checker reports these unqualified because its regex captures the
+  // name after an optional leading backslash, so `new \finfo` is
+  // indistinguishable from `new finfo` to it. Both are genuine global classes.
+  'finfo','CURLFile',
 ]);
 
 /** self, static, parent and true/false/null in ::class position. */
